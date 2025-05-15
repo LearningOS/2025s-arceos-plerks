@@ -21,10 +21,13 @@ fn test_hashmap() {
         let key = format!("key_{value}");
         m.insert(key, value);
     }
+    // let mut cnt = 0;
     for (k, v) in m.iter() {
         if let Some(k) = k.strip_prefix("key_") {
             assert_eq!(k.parse::<u32>().unwrap(), *v);
         }
+        // cnt += 1;
     }
+    // println!("cnt: {}", cnt);
     println!("test_hashmap() OK!");
 }
