@@ -57,7 +57,25 @@ extern crate alloc;
 #[doc(no_inline)]
 pub use alloc::{boxed, format, string, vec};
 
+#[cfg(feature = "alloc")]
 pub mod collections; // 我定义的模块
+/*
+这里引入collections要在定义了alloc feature的情况下才引入，否则第二个support_hashmap练习做完修改后，
+`make run A=exercises/print_with_color`编译axstd时会提示找不到alloc包。
+
+如果这里单单写成 pub mod collections，
+则另一个解决方式是 arceos/exercises/print_with_color/Cargo.toml 引用axstd时定义上alloc feature，
+
+features标记用来实现条件编译。
+
+arceos/exercises/print_with_color/Cargo.toml里[dependencies]引用axstd时给axstd定义上alloc feature，
+然后axstd的Cargo.toml里定义了feature依赖传递：alloc = ["arceos_api/alloc", "axfeat/alloc", "axio/alloc"]。
+这样好像是相当于alloc一个编译宏会附带让编译器自动定义上 arceos_api/alloc，axfeat/alloc，axio/alloc 这3个宏，自动传递打开子依赖的feature。
+
+不加上features = ["alloc"]，报错找不到alloc crate则是因为arceos/ulib/axstd/src/lib.rs中的这行没编译上：
+#[cfg(feature = "alloc")]
+extern crate alloc;
+*/
 
 #[doc(no_inline)]
 pub use core::{arch, cell, cmp, hint, marker, mem, ops, ptr, slice, str};
