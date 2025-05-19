@@ -29,11 +29,16 @@ axio = { version = "0.1", features = ["alloc"] }
 axerrno = "0.1"
 axfs_vfs = "0.1"
 axfs_devfs = { version = "0.1", optional = true }
-axfs_ramfs = { version = "0.1", optional = true }
+axfs_ramfs = { version = "0.1", optional = true } # 这用的是crate.io上的包，要对axfs_ramfs增加rename()的具体实现，要让Cargo用本地的包
 crate_interface = { version = "0.1", optional = true }
 axsync = { workspace = true }
 axdriver = { workspace = true, features = ["block"] }
 axdriver_block = { git = "https://github.com/arceos-org/axdriver_crates.git", tag = "v0.1.0" }
+
+# 这里写[patch.crates-io]不行，要写在根Cargo.toml里 (Workspace)，写这里的话`make run A=exercises/ramfs_rename/ BLK=y`会报warning:
+# warning: patch for the non root package will be ignored, specify patch at the workspace root
+# [patch.crates-io]
+# axfs_ramfs = { path = "../../axfs_ramfs", optional = true }
 
 [dependencies.fatfs]
 git = "https://github.com/rafalh/rust-fatfs"

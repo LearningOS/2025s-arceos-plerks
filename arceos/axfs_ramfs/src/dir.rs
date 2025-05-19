@@ -165,6 +165,43 @@ impl VfsNodeOps for DirNode {
         }
     }
 
+    /// 把一个文件改名，
+    /// 这参数设计得有点抽象，既然是把一个文件改名，那参数应该是file_path和new_name，但是实际是两个path，搞得好像移动一样，
+    /// 而且传进来的_src_path是"/f1"，是绝对路径，但是这里的含义应该是想表达相对路径"f1"
+    fn rename(&self, _src_path: &str, _dst_path: &str) -> VfsResult {
+        /* _src_path是"/f1"，_dst_path是"/tmp/f2"。但是self.children的key是"f1"这样
+        的格式，所以把_src_path和_dst_path处理一下，取最后一个'/'后面的子串
+        */
+        log::debug!("_src_path: {} _dst_path: {}", _src_path, _dst_path);
+        let src_path = _src_path.rsplit('/').next().unwrap_or("");
+        let dst_path = _dst_path.rsplit('/').next().unwrap_or("");
+        log::debug!("src_path: {} dst_path: {}", src_path, dst_path);
+        
+        /* DirNode有个Weak<DirNode>属性引用自己，用来实现：变回Arc<DirNode>，这样就可以调用lookup()了。
+        不能现造一个Arc，比如写let result = Arc::new(*self).lookup(_src_path)的话，会把*self move掉，
+        这里传进来的是self借用，不允许move掉。而且Arc::new创建的新Arc，Arc内部存的(引用的)内容物是拷贝的，和原来那个Arc不一样。
+        */
+        let result = (*self).this.upgrade().unwrap().lookup(_src_path);
+        if result.is_err() { // 检查_src_path对应文件的存在性
+            return Err(VfsError::NotFound);
+        }
+        
+        for name in self.children.read().keys() {
+            log::debug!("name: {}", name);
+        }
+        
+        let mut children = self.children.write();
+        let node = children.remove(src_path).unwrap();
+        children.insert(String::from(dst_path), node);
+        drop(children); // drop掉children这把写锁，防止后面还要读self.children的话卡住
+
+        for name in self.children.read().keys() {
+            log::debug!("name: {}", name);
+        }
+
+        Ok(())
+    }
+
     axfs_vfs::impl_vfs_dir_default! {}
 }
 
