@@ -131,6 +131,10 @@ fn handle_syscall(tf: &TrapFrame, syscall_num: usize) -> isize {
     ret
 }
 
+use axhal::mem::{PAGE_SIZE_4K, phys_to_virt};
+use memory_addr::VirtAddr;
+use std::vec;
+
 #[allow(unused_variables)]
 fn sys_mmap(
     addr: *mut usize,
@@ -140,7 +144,50 @@ fn sys_mmap(
     fd: i32,
     _offset: isize,
 ) -> isize {
-    unimplemented!("no sys_mmap!");
+    // unimplemented!("no sys_mmap!");
+    // sys_mmap的实现可以从 arceos/tour/m_2_0/src/main.rs handle_page_fault() 和 arceos/tour/m_2_0/src/loader.rs 参考怎么写
+    let aligned_size = (length + PAGE_SIZE_4K - 1) / PAGE_SIZE_4K * PAGE_SIZE_4K;
+    let mut buf = vec![0u8; length];
+    load_file(fd, &mut buf, _offset);
+    let current = axtask::current();
+    let mut uspace = current.task_ext().aspace.lock();
+    
+    // 参数的addr虽然类型是个指针，但是好像addr的值就是用户mmap期望的开始位置
+    // find_free_area，第一个参数为期望的位置，如果那个位置不行会另找别的区域返回
+    // start为可用的虚拟地址位置
+    let start = uspace.find_free_area(VirtAddr::from(addr as usize), aligned_size, uspace.va_range).unwrap();
+    ax_println!("start: {:?}", start);
+
+    // 分配内存
+    uspace.map_alloc(start, aligned_size, MappingFlags::READ|MappingFlags::WRITE|MappingFlags::EXECUTE|MappingFlags::USER, true).unwrap();
+    
+    // 找到 start 对应的物理地址，结果为 paddr
+    let (paddr, _, _) = uspace
+        .page_table()
+        .query(start.into())
+        .unwrap_or_else(|_| panic!("Mapping failed for segment: {:#x}", start));
+    
+    // 把 buf 的内容写过去，用的是物理地址 paddr
+    unsafe {
+        core::ptr::copy_nonoverlapping(
+            buf.as_ptr(),
+            phys_to_virt(paddr).as_mut_ptr(),
+            PAGE_SIZE_4K,
+        );
+    }
+    start.as_usize() as isize
+}
+
+// 把文件内容加载到 uf 中
+fn load_file(fd: i32, buf: &mut [u8], _offset: isize) -> usize {
+    let file = arceos_posix_api::get_file_like(fd).unwrap();
+    // 按mmap的manpage，是支持mmap文件中从_offset开始的length长度，这里不管这个_offset了
+    let _read_len = file.read(buf).unwrap();
+    file.read(buf).unwrap();
+    /* ax_println!("buf len: {:?}", buf.len());
+    // ./main.rs 中的 extern crate axstd as std; 好像是当前crate级别的，所以这个文件里也生效
+    ax_println!("file content: {:?}", std::string::String::from_utf8_lossy(buf)); */
+    0
 }
 
 fn sys_openat(dfd: c_int, fname: *const c_char, flags: c_int, mode: api::ctypes::mode_t) -> isize {

@@ -36,7 +36,7 @@ void verify_file(const char *fname)
         exit(-1);
     }
     addr = mmap(NULL, 32, PROT_READ, MAP_PRIVATE, fd, 0);
-    if (addr == NULL) {
+    if (addr == NULL || strcmp(addr, "hello, arceos!") != 0) { // 原本只有 if (addr == NULL)，加了个mmap后的内容比较
         printf("Map file error!\n");
         exit(-1);
     }
