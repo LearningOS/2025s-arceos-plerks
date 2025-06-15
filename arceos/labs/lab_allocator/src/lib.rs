@@ -50,7 +50,12 @@ impl ByteAllocator for LabByteAllocator {
     fn alloc(&mut self, layout: Layout) -> AllocResult<NonNull<u8>> {
         let size = layout.size();
         let align = layout.align();
+
+        /* if align == 8 && size > 384 {
+            ax_println!("LabByteAllocator.alloc() align == 8 && size > 384: size: {} align: {}", size, align);
+        } */
         // ax_println!("LabByteAllocator.alloc() size: {} align: {}", size, align);
+
         if align == 8 {
             let res = self.tlsf.alloc(layout);
             match res {
